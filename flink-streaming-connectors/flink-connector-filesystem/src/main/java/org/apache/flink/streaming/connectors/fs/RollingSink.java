@@ -682,9 +682,8 @@ public class RollingSink<T> extends RichSinkFunction<T> implements InputTypeConf
 					// it was still in progress, rename to final path
 					fs.rename(partInProgressPath, partPath);
 				} else {
-					LOG.error("In-Progress file {} was neither moved to pending nor is still in progress.", bucketState.currentFile);
-					throw new RuntimeException("In-Progress file " + bucketState.currentFile+ " " +
-							"was neither moved to pending nor is still in progress.");
+					LOG.debug("In-Progress file {} was neither moved to pending nor is still in progress. Possibly, " +
+							"it was moved to final location by a previous snapshot restore", bucketState.currentFile);
 				}
 
 				refTruncate = reflectTruncate(fs);
@@ -739,9 +738,11 @@ public class RollingSink<T> extends RichSinkFunction<T> implements InputTypeConf
 				} else {
 					LOG.debug("Writing valid-length file for {} to specify valid length {}", partPath, bucketState.currentFileValidLength);
 					Path validLengthFilePath = new Path(partPath.getParent(), validLengthPrefix + partPath.getName()).suffix(validLengthSuffix);
-					FSDataOutputStream lengthFileOut = fs.create(validLengthFilePath);
-					lengthFileOut.writeUTF(Long.toString(bucketState.currentFileValidLength));
-					lengthFileOut.close();
+					if (!fs.exists(validLengthFilePath)) {
+						FSDataOutputStream lengthFileOut = fs.create(validLengthFilePath);
+						lengthFileOut.writeUTF(Long.toString(bucketState.currentFileValidLength));
+						lengthFileOut.close();
+					}
 				}
 
 				// invalidate in the state object
